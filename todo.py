@@ -1,16 +1,20 @@
+import json
+from json import JSONDecodeError
 import flet as ft
 
 
 class TodoApp(ft.UserControl):
     def __init__(self):
         super().__init__()
-        self.tasks = None
+        self.tasks_json = {}
+        self.new_task_id = 0
+        self.tasks = None  # self.get_tasks()
         self.new_task = None
         self.filter = None
         self.items_left = ft.Text("0 tareas pendientes")
 
     def build(self):
-        self.new_task = ft.TextField(hint_text="Escribe una nueva tarea", expand=True)
+        self.new_task = ft.TextField(hint_text="Escribe una nueva tarea", autofocus=True, expand=True)
         self.tasks = ft.Column()
         self.filter = ft.Tabs(
             selected_index=0,
@@ -23,13 +27,13 @@ class TodoApp(ft.UserControl):
         )
 
         # Application's root control (i.e. "view") containing all other controls
-        return ft.Column(
+        column = ft.Column(
             width=600,
             controls=[
                 ft.Row(
                     controls=[
                         self.new_task,
-                        ft.FloatingActionButton(icon=ft.icons.ADD, on_click=self.add_clicked),
+                        ft.FloatingActionButton(icon=ft.icons.ADD, on_click=self.add_clicked)
                     ],
                 ),
                 ft.Row(
@@ -46,15 +50,19 @@ class TodoApp(ft.UserControl):
             ],
         )
 
-    def clear_clicked(self, e):
-        for task in self.tasks.controls[:]:
-            if task.completed:
-                self.task_delete(task)
+        self.get_tasks()
+        return column
+
+    # def clear_clicked(self, e):
+    #     for task in self.tasks.controls[:]:
+    #         if task.completed:
+    #             self.task_delete(task)
 
     def update(self):
         status = self.filter.tabs[self.filter.selected_index].text
         count = 0
         for task in self.tasks.controls:
+            # print(task)
             task.visible = (
                     status == "Todas"
                     or (status == "Pendientes" and task.completed is False)
@@ -65,17 +73,61 @@ class TodoApp(ft.UserControl):
         self.items_left.value = f"{count} tarea(s) pendientes"
         super().update()
 
+    def get_tasks(self):
+        # Opening JSON file
+        with open('tasks.json', 'r') as openfile:
+            # Reading from json file
+            try:
+                self.tasks_json = json.load(openfile)
+                dic = self.tasks_json
+
+                keys = list(dic)
+                if len(keys) > 0:
+                    self.new_task_id = int(keys[-1])
+                    for t in keys:
+                        # print(dic[t][1])
+                        task = Task(dic[t][0], self.task_status_change, self.task_delete)
+                        task.__dict__["_Control__uid"] = t
+                        task.completed = dic[t][1]
+                        self.tasks.controls.append(task)
+                        print(task.task_status_change)
+                        # print(task.__dict__)
+                        # self.update()
+                    # print(self.tasks.controls)
+                    print(f"tareas: {self.tasks_json}")
+            # File is empty
+            except JSONDecodeError:
+                pass
+
+    def save(self):
+        with open("tasks.json", "w") as outfile:
+            json.dump(self.tasks_json, outfile)
+
     def add_clicked(self, e):
         task = Task(self.new_task.value, self.task_status_change, self.task_delete)
+        self.new_task_id += 1
+        ide = str(self.new_task_id)
+        t = {ide: [task.task_name, task.completed]}
+        task.__dict__["_Control__uid"] = ide
         self.tasks.controls.append(task)
+        print(self.tasks_json)
+        self.tasks_json.update(t)
+        self.save()
         self.new_task.value = ""
         self.update()
 
     def task_delete(self, task):
         self.tasks.controls.remove(task)
+        print(task.__dict__["_Control__uid"])
+        self.tasks_json.__delitem__(task.__dict__["_Control__uid"])
+        print(self.tasks_json)
+        self.save()
         self.update()
 
     def task_status_change(self, e):
+        self.tasks_json[e.__dict__["_Control__uid"]][1] = e.completed
+        # print(e.__dict__)
+        self.save()
         self.update()
 
     def tabs_changed(self, e):
@@ -95,12 +147,17 @@ class Task(ft.UserControl):
         self.task_delete = task_delete
 
     def build(self):
-        self.display_task = ft.Checkbox(value=False, label=self.task_name, on_change=self.status_changed)
+        # self.display_task = ft.Checkbox(value=False, label=self.task_name, on_change=self.status_changed)
         self.edit_name = ft.TextField(expand=1)
 
-        self.display_task = ft.Checkbox(
-            value=False, label=self.task_name, on_change=self.status_changed
-        )
+        if self.completed:
+            self.display_task = ft.Checkbox(
+                value=True, label=self.task_name, on_change=self.status_changed
+            )
+        else:
+            self.display_task = ft.Checkbox(
+                value=False, label=self.task_name, on_change=self.status_changed
+            )
 
         self.display_view = ft.Row(
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -165,6 +222,7 @@ class Task(ft.UserControl):
 def main(page: ft.Page):
     page.title = "Gestor de Tareas"
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
+
     page.update()
 
     # Create application instance

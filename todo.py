@@ -3,6 +3,12 @@ from json import JSONDecodeError
 import flet as ft
 
 
+def save(tasks_json=None):
+    with open("tasks.json", "w") as outfile:
+        json.dump(tasks_json, outfile)
+        print(tasks_json)
+
+
 class TodoApp(ft.UserControl):
     def __init__(self):
         super().__init__()
@@ -41,9 +47,15 @@ class TodoApp(ft.UserControl):
                         self.items_left,
                     ],
                 ),
-                ft.Column(
+                ft.Row(
                     controls=[
                         self.filter,
+                        ft.FloatingActionButton(icon=ft.icons.DELETE, on_click=self.clear_clicked)
+                    ],
+                ),
+                ft.Column(
+                    controls=[
+
                         self.tasks
                     ],
                 ),
@@ -53,10 +65,10 @@ class TodoApp(ft.UserControl):
         self.get_tasks()
         return column
 
-    # def clear_clicked(self, e):
-    #     for task in self.tasks.controls[:]:
-    #         if task.completed:
-    #             self.task_delete(task)
+    def clear_clicked(self, e):
+        for task in self.tasks.controls[:]:
+            if task.completed:
+                self.task_delete(task)
 
     def update(self):
         status = self.filter.tabs[self.filter.selected_index].text
@@ -71,6 +83,7 @@ class TodoApp(ft.UserControl):
             if not task.completed:
                 count += 1
         self.items_left.value = f"{count} tarea(s) pendientes"
+        self.new_task.autofocus = True  # Tab pointed
         super().update()
 
     def get_tasks(self):
@@ -86,11 +99,11 @@ class TodoApp(ft.UserControl):
                     self.new_task_id = int(keys[-1])
                     for t in keys:
                         # print(dic[t][1])
-                        task = Task(dic[t][0], self.task_status_change, self.task_delete)
+                        task = Task(dic[t][0], self.task_status_change, self.task_delete, self.tasks_json)
                         task.__dict__["_Control__uid"] = t
                         task.completed = dic[t][1]
                         self.tasks.controls.append(task)
-                        print(task.task_status_change)
+                        # print(task.task_status_change)
                         # print(task.__dict__)
                         # self.update()
                     # print(self.tasks.controls)
@@ -99,35 +112,30 @@ class TodoApp(ft.UserControl):
             except JSONDecodeError:
                 pass
 
-    def save(self):
-        with open("tasks.json", "w") as outfile:
-            json.dump(self.tasks_json, outfile)
-
     def add_clicked(self, e):
-        task = Task(self.new_task.value, self.task_status_change, self.task_delete)
+        task = Task(self.new_task.value, self.task_status_change, self.task_delete, self.tasks_json)
         self.new_task_id += 1
         ide = str(self.new_task_id)
         t = {ide: [task.task_name, task.completed]}
         task.__dict__["_Control__uid"] = ide
         self.tasks.controls.append(task)
-        print(self.tasks_json)
         self.tasks_json.update(t)
-        self.save()
+        save(self.tasks_json)
         self.new_task.value = ""
         self.update()
 
     def task_delete(self, task):
-        self.tasks.controls.remove(task)
-        print(task.__dict__["_Control__uid"])
         self.tasks_json.__delitem__(task.__dict__["_Control__uid"])
         print(self.tasks_json)
-        self.save()
+        self.tasks.controls.remove(task)
+        print(task.__dict__["_Control__uid"] + ", deleted")
+        save(self.tasks_json)
         self.update()
 
     def task_status_change(self, e):
         self.tasks_json[e.__dict__["_Control__uid"]][1] = e.completed
         # print(e.__dict__)
-        self.save()
+        # self.save()
         self.update()
 
     def tabs_changed(self, e):
@@ -135,7 +143,7 @@ class TodoApp(ft.UserControl):
 
 
 class Task(ft.UserControl):
-    def __init__(self, task_name, task_status_change, task_delete):
+    def __init__(self, task_name, task_status_change, task_delete, tasks_json):
         super().__init__()
         self.completed = False
         self.edit_view = None
@@ -145,6 +153,7 @@ class Task(ft.UserControl):
         self.task_name = task_name
         self.task_status_change = task_status_change
         self.task_delete = task_delete
+        self.tasks_json = tasks_json
 
     def build(self):
         # self.display_task = ft.Checkbox(value=False, label=self.task_name, on_change=self.status_changed)
@@ -209,6 +218,8 @@ class Task(ft.UserControl):
         self.display_task.label = self.edit_name.value
         self.display_view.visible = True
         self.edit_view.visible = False
+        self.tasks_json[self.__dict__["_Control__uid"]][0] = self.edit_name.value
+        save(self.tasks_json)
         self.update()
 
     def delete_clicked(self, e):
@@ -222,7 +233,8 @@ class Task(ft.UserControl):
 def main(page: ft.Page):
     page.title = "Gestor de Tareas"
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
-
+    page.window_width = 600     # Not working
+    page.window_height = 500    # Not working
     page.update()
 
     # Create application instance

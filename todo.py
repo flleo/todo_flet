@@ -50,7 +50,7 @@ class TodoApp(ft.UserControl):
                 ft.Row(
                     controls=[
                         self.filter,
-                        ft.FloatingActionButton(icon=ft.icons.DELETE, on_click=self.clear_clicked)
+                        ft.IconButton(icon=ft.icons.DELETE_OUTLINE, on_click=self.clear_clicked,  tooltip="Borra completados", )
                     ],
                 ),
                 ft.Column(

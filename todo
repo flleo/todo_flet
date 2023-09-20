@@ -1,0 +1,4 @@
+# /bin/bash
+
+cd /run/media/fed/Work/work/python/flet/desktop/todo_flet/
+flet run 
